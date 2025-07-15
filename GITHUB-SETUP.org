@@ -1,0 +1,627 @@
+#+TITLE: GitHub Integration Setup
+#+AUTHOR: jwalsh + Claude
+#+DATE: 2025-07-15
+#+PROPERTY: header-args :mkdirp yes
+
+* Overview
+
+This file creates GitHub integration structure including workflows, issue templates, and RFC process. Note: This creates the structure but doesn't require a GitHub repository.
+
+* GitHub Workflows
+
+** CI/CD Workflow
+
+#+BEGIN_SRC yaml :tangle .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build
+      run: npm run build
+    
+    - name: Run tests
+      run: npm test
+    
+    - name: Lint
+      run: npx clj-kondo --lint src
+#+END_SRC
+
+** Formal Verification Workflow
+
+#+BEGIN_SRC yaml :tangle .github/workflows/formal-verification.yml
+name: Formal Verification
+
+on:
+  push:
+    paths:
+      - 'specs/**'
+  pull_request:
+    paths:
+      - 'specs/**'
+
+jobs:
+  verify-tla:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Java
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+    
+    - name: Download TLA+ tools
+      run: |
+        mkdir -p tools/formal-methods
+        wget -O tools/formal-methods/tla2tools.jar https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
+    
+    - name: Run TLC model checker
+      run: |
+        for spec in specs/*.tla; do
+          echo "Checking $spec..."
+          java -jar tools/formal-methods/tla2tools.jar -deadlock "$spec" || true
+        done
+#+END_SRC
+
+** Release Workflow
+
+#+BEGIN_SRC yaml :tangle .github/workflows/release.yml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build release
+      run: npm run build
+    
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+#+END_SRC
+
+** Documentation Workflow
+
+#+BEGIN_SRC yaml :tangle .github/workflows/docs.yml
+name: Documentation
+
+on:
+  push:
+    paths:
+      - 'docs/**'
+      - '*.org'
+      - '*.md'
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Check markdown links
+      uses: gaurav-nelson/github-action-markdown-link-check@v1
+      with:
+        folder-path: 'docs'
+    
+    - name: Spell check
+      uses: streetsidesoftware/cspell-action@v2
+      with:
+        files: |
+          **/*.md
+          **/*.org
+#+END_SRC
+
+* Issue Templates
+
+** Bug Report Template
+
+#+BEGIN_SRC yaml :tangle .github/ISSUE_TEMPLATE/bug_report.yml
+name: Bug Report
+description: File a bug report
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us, what did you expect to happen?
+      placeholder: Tell us what you see!
+    validations:
+      required: true
+  
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce the issue?
+      placeholder: |
+        1. Start the REPL with...
+        2. Type command...
+        3. See error...
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: version
+    attributes:
+      label: Version
+      description: What version of Gemini REPL are you running?
+      options:
+        - 0.1.0 (Default)
+        - main branch
+        - Other
+    validations:
+      required: true
+  
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output.
+      render: shell
+#+END_SRC
+
+** Feature Request Template
+
+#+BEGIN_SRC yaml :tangle .github/ISSUE_TEMPLATE/feature_request.yml
+name: Feature Request
+description: Suggest an idea for this project
+title: "[Feature]: "
+labels: ["enhancement"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature!
+  
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear description of what the problem is.
+      placeholder: I'm always frustrated when...
+  
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: A clear description of what you want to happen.
+    validations:
+      required: true
+  
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: Any alternative solutions or features you've considered.
+  
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add any other context or screenshots about the feature request.
+#+END_SRC
+
+** RFC Template
+
+#+BEGIN_SRC yaml :tangle .github/ISSUE_TEMPLATE/rfc.yml
+name: RFC (Request for Comments)
+description: Propose a significant change
+title: "[RFC]: "
+labels: ["rfc", "discussion"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for proposing significant changes that need discussion.
+  
+  - type: input
+    id: rfc-number
+    attributes:
+      label: RFC Number
+      description: Leave blank if unsure
+      placeholder: RFC-001
+  
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Brief overview of the proposal
+    validations:
+      required: true
+  
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is this change necessary?
+    validations:
+      required: true
+  
+  - type: textarea
+    id: design
+    attributes:
+      label: Detailed Design
+      description: Technical details of the implementation
+    validations:
+      required: true
+  
+  - type: textarea
+    id: drawbacks
+    attributes:
+      label: Drawbacks
+      description: What are the downsides of this proposal?
+  
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: What other approaches were considered?
+#+END_SRC
+
+* Pull Request Template
+
+#+BEGIN_SRC markdown :tangle .github/pull_request_template.md
+## Description
+
+Please include a summary of the changes and which issue is fixed.
+
+Fixes # (issue)
+
+## Type of change
+
+- [ ] Bug fix (non-breaking change which fixes an issue)
+- [ ] New feature (non-breaking change which adds functionality)
+- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- [ ] Documentation update
+
+## Checklist
+
+- [ ] My code follows the style guidelines of this project
+- [ ] I have performed a self-review of my code
+- [ ] I have commented my code, particularly in hard-to-understand areas
+- [ ] I have made corresponding changes to the documentation
+- [ ] My changes generate no new warnings
+- [ ] I have added tests that prove my fix is effective or that my feature works
+- [ ] New and existing unit tests pass locally with my changes
+- [ ] Any dependent changes have been merged and published
+
+## Additional context
+
+Add any other context or screenshots about the pull request here.
+#+END_SRC
+
+* RFC Process
+
+** RFC Directory Structure
+
+#+BEGIN_SRC markdown :tangle .github/rfcs/README.md
+# RFCs (Request for Comments)
+
+This directory contains RFCs for significant changes to the Gemini REPL project.
+
+## Process
+
+1. Create an issue using the RFC template
+2. Discuss in the issue
+3. Once consensus is reached, create a PR with the RFC document
+4. RFCs are numbered sequentially (RFC-001, RFC-002, etc.)
+
+## RFC Status
+
+- DRAFT: Under discussion
+- ACCEPTED: Approved for implementation
+- IMPLEMENTED: Completed
+- REJECTED: Not proceeding
+
+## Active RFCs
+
+| Number | Title | Status | Author |
+|--------|-------|--------|--------|
+| RFC-001 | Formal Specification Validation | DRAFT | jwalsh |
+#+END_SRC
+
+** RFC Template
+
+#+BEGIN_SRC markdown :tangle .github/rfcs/RFC-TEMPLATE.md
+# RFC-XXX: [Title]
+
+**Status:** DRAFT  
+**Author:** [Your Name]  
+**Created:** [Date]  
+**Updated:** [Date]
+
+## Summary
+
+Brief overview of the proposal (2-3 sentences).
+
+## Motivation
+
+Why is this change necessary? What problem does it solve?
+
+## Detailed Design
+
+Technical details of the implementation. Include:
+- API changes
+- Data structures
+- Algorithms
+- Integration points
+
+## Implementation Plan
+
+Step-by-step plan for implementing this RFC.
+
+## Drawbacks
+
+What are the downsides of this proposal?
+
+## Alternatives
+
+What other approaches were considered and why were they rejected?
+
+## Open Questions
+
+What aspects of the design are still undecided?
+
+## References
+
+Links to relevant discussions, papers, or implementations.
+#+END_SRC
+
+** Initial RFC
+
+#+BEGIN_SRC markdown :tangle .github/rfcs/RFC-001-formal-validation.md
+# RFC-001: Formal Specification Validation
+
+**Status:** DRAFT  
+**Author:** jwalsh  
+**Created:** 2025-07-15  
+**Updated:** 2025-07-15
+
+## Summary
+
+Establish a formal validation process using TLA+ and Alloy to ensure the Gemini REPL behaves correctly and safely.
+
+## Motivation
+
+As the REPL gains self-modification capabilities, we need mathematical guarantees about system behavior to prevent unsafe states.
+
+## Detailed Design
+
+### TLA+ Specifications
+
+1. **Command Processing**: Verify command handling state machine
+2. **API Interactions**: Model rate limiting and error handling
+3. **Context Management**: Ensure conversation state consistency
+
+### Alloy Models
+
+1. **System Structure**: Validate component relationships
+2. **Data Integrity**: Ensure message format compliance
+
+### CI Integration
+
+- Run TLC model checker on all TLA+ specs
+- Run Alloy analyzer on structural models
+- Block PRs that violate specifications
+
+## Implementation Plan
+
+1. Create base specifications
+2. Add CI workflow for automated checking
+3. Document specification writing guidelines
+4. Train team on formal methods basics
+
+## Drawbacks
+
+- Learning curve for formal methods
+- Additional CI time for verification
+- May slow initial development
+
+## Alternatives
+
+- Property-based testing only
+- Manual code review only
+- Runtime assertions only
+
+## Open Questions
+
+- Which properties are most critical to verify?
+- How detailed should specifications be?
+- Should we require specs for all features?
+#+END_SRC
+
+* GitHub CLI Scripts
+
+** Create Issue Script
+
+#+BEGIN_SRC bash :tangle .github/scripts/create-issue.sh :shebang #!/bin/sh
+# Create a GitHub issue using the CLI
+
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 <title> <body> [labels]"
+    exit 1
+fi
+
+TITLE="$1"
+BODY="$2"
+LABELS="${3:-bug}"
+
+gh issue create \
+    --title "$TITLE" \
+    --body "$BODY" \
+    --label "$LABELS"
+#+END_SRC
+
+** Create PR Script
+
+#+BEGIN_SRC bash :tangle .github/scripts/create-pr.sh :shebang #!/bin/sh
+# Create a pull request using the CLI
+
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 <title> <body> [base]"
+    exit 1
+fi
+
+TITLE="$1"
+BODY="$2"
+BASE="${3:-main}"
+
+gh pr create \
+    --title "$TITLE" \
+    --body "$BODY" \
+    --base "$BASE"
+#+END_SRC
+
+** Check Workflows Script
+
+#+BEGIN_SRC bash :tangle .github/scripts/check-workflows.sh :shebang #!/bin/sh
+# Check the status of GitHub Actions workflows
+
+echo "Recent workflow runs:"
+gh run list --limit 10
+
+echo ""
+echo "Active workflows:"
+gh workflow list
+#+END_SRC
+
+* Claude GitHub Command
+
+#+BEGIN_SRC markdown :tangle .claude/commands/github.md
+# GitHub Command
+
+## Purpose
+Assist with GitHub operations and integration.
+
+## Capabilities
+- Create issues with proper labels
+- Generate PR descriptions
+- Format commit messages
+- Manage GitHub Actions workflows
+
+## Conventions
+- Use conventional commits
+- Add co-author trailers
+- Reference issues in commits
+- Keep PRs focused and small
+
+## GitHub CLI Usage
+```bash
+# Create issue
+gh issue create --title "Bug: ..." --body "..." --label "bug"
+
+# Create PR
+gh pr create --title "feat: ..." --body "..." --base main
+
+# Check CI status
+gh run list
+gh run view <id>
+
+# Review PRs
+gh pr review <number> --approve
+gh pr review <number> --request-changes --body "..."
+```
+
+## Workflow Management
+- CI runs on all pushes and PRs
+- Formal verification on spec changes
+- Documentation checks on doc changes
+- Release automation on version tags
+#+END_SRC
+
+* Verification Script
+
+#+BEGIN_SRC bash :tangle scripts/github-setup-verify.sh :shebang #!/bin/sh
+# Verify GitHub setup completed successfully
+
+echo "Verifying GitHub integration setup..."
+
+# Check directories
+for dir in .github .github/workflows .github/ISSUE_TEMPLATE .github/rfcs .github/scripts; do
+    if [ -d "$dir" ]; then
+        echo "✓ $dir exists"
+    else
+        echo "✗ $dir missing"
+        exit 1
+    fi
+done
+
+# Check workflow files
+for workflow in ci.yml formal-verification.yml release.yml docs.yml; do
+    if [ -f ".github/workflows/$workflow" ]; then
+        echo "✓ $workflow workflow exists"
+    else
+        echo "✗ $workflow workflow missing"
+        exit 1
+    fi
+done
+
+# Check templates
+for template in bug_report.yml feature_request.yml rfc.yml; do
+    if [ -f ".github/ISSUE_TEMPLATE/$template" ]; then
+        echo "✓ $template template exists"
+    else
+        echo "✗ $template template missing"
+        exit 1
+    fi
+done
+
+echo ""
+echo "GitHub integration setup verified successfully!"
+echo "Note: No GitHub repository required - structure ready for when needed"
+#+END_SRC

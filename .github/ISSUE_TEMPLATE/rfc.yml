@@ -1,0 +1,53 @@
+name: RFC (Request for Comments)
+description: Propose a significant change
+title: "[RFC]: "
+labels: ["rfc", "discussion"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for proposing significant changes that need discussion.
+  
+  - type: input
+    id: rfc-number
+    attributes:
+      label: RFC Number
+      description: Leave blank if unsure
+      placeholder: RFC-001
+  
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Brief overview of the proposal
+    validations:
+      required: true
+  
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is this change necessary?
+    validations:
+      required: true
+  
+  - type: textarea
+    id: design
+    attributes:
+      label: Detailed Design
+      description: Technical details of the implementation
+    validations:
+      required: true
+  
+  - type: textarea
+    id: drawbacks
+    attributes:
+      label: Drawbacks
+      description: What are the downsides of this proposal?
+  
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: What other approaches were considered?

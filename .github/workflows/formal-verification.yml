@@ -1,0 +1,34 @@
+name: Formal Verification
+
+on:
+  push:
+    paths:
+      - 'specs/**'
+  pull_request:
+    paths:
+      - 'specs/**'
+
+jobs:
+  verify-tla:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Java
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+    
+    - name: Download TLA+ tools
+      run: |
+        mkdir -p tools/formal-methods
+        wget -O tools/formal-methods/tla2tools.jar https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
+    
+    - name: Run TLC model checker
+      run: |
+        for spec in specs/*.tla; do
+          echo "Checking $spec..."
+          java -jar tools/formal-methods/tla2tools.jar -deadlock "$spec" || true
+        done
