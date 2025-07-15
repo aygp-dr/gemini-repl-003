@@ -12,6 +12,12 @@ rm .git/hooks/pre-commit
 
 This hook will waste 40% of your time fighting trailing whitespace. Delete it immediately or suffer eternal whitespace battles. Trust the wisdom of v002 who spent 2h 10m learning this lesson.
 
+** GIT STAGING DISCIPLINE
+- NEVER use `git add -A` or `git add .` until .gitignore is properly configured
+- Always stage files individually or by specific patterns
+- Review staged files with `git status` before committing
+- This prevents accidentally committing node_modules/, build artifacts, etc.
+
 * SINGLE-INPUT REPRODUCTION SYSTEM
 
 This document contains EVERY ACTUAL PROMPT from git notes analysis to reproduce the Gemini REPL repository exactly. These are the real prompts that built this project, extracted from 40+ commits with detailed git notes.
@@ -183,11 +189,21 @@ The core.cljs file should include:
 - Placeholder for Gemini API integration
 - Simple prompt handling
 
+** CRITICAL: Update .gitignore BEFORE npm install
+Add these entries to .gitignore before running npm install:
+- node_modules/
+- .shadow-cljs/
+- target/
+- *.log
+
+This prevents accidentally committing thousands of node_modules files!
+
 ** Key Learnings
 - Successfully tangled all 8 code blocks
 - Massive trailing whitespace cleanup needed (ClojureScript formatting)
 - FreeBSD sed requires -i '' (not just -i)
 - Pre-commit hook very strict about trailing newlines!
+- v003 learned: Update .gitignore BEFORE npm install to avoid staging nightmares
 
 ** Tangling Process
 Actions taken:
