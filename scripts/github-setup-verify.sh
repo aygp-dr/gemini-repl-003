@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 # Verify GitHub setup completed successfully
 
 echo "Verifying GitHub integration setup..."

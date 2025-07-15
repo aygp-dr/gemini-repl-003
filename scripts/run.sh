@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 # Run the compiled application
 
 if [ ! -f target/main.js ]; then

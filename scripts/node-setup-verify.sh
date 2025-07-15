@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 # Verify Node.js setup completed successfully
 
 echo "Verifying Node.js and ClojureScript setup..."

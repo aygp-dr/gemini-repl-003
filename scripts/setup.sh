@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 # Project setup script
 
 echo "Gemini REPL Project Setup"

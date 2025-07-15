@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 # Setup useful git aliases for the project
 
 echo "Setting up git aliases..."

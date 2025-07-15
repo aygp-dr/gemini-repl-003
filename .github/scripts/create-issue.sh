@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 # Create a GitHub issue using the CLI
 
 if [ $# -lt 2 ]; then

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 # Check the status of GitHub Actions workflows
 
 echo "Recent workflow runs:"

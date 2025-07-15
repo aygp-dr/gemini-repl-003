@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 # Verify shared setup completed successfully
 
 echo "Verifying shared infrastructure setup..."

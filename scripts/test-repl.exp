@@ -1,0 +1,48 @@
+#!/usr/bin/env expect
+# Test script for Gemini REPL using expect
+
+set timeout 10
+
+# Start the REPL
+spawn node target/main.js
+
+# Wait for banner
+expect "=== Gemini REPL ==="
+
+# Test help command
+send "/help\r"
+expect "Available commands:"
+expect "/help - Show available commands"
+expect "/exit - Exit the REPL"
+expect "gemini>"
+
+# Test stats command
+send "/stats\r"
+expect "Usage Statistics:"
+expect "Requests: 0"
+expect "gemini>"
+
+# Test debug toggle
+send "/debug\r"
+expect "Debug mode: ON"
+expect "gemini>"
+
+send "/debug\r"
+expect "Debug mode: OFF"
+expect "gemini>"
+
+# Test clear command
+send "/clear\r"
+expect "gemini>"
+
+# Test unknown command
+send "/unknown\r"
+expect "Unknown command: /unknown"
+expect "gemini>"
+
+# Test exit
+send "/exit\r"
+expect "Goodbye!"
+expect eof
+
+puts "\nAll tests passed!"
