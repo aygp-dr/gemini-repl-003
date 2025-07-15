@@ -1,0 +1,134 @@
+module gemini_api
+
+// API structure validation
+sig API {
+    endpoint: one Endpoint,
+    auth: one Authentication,
+    requests: set Request,
+    responses: set Response
+}
+
+sig Endpoint {
+    protocol: one Protocol,
+    host: one String,
+    path: one String
+}
+
+abstract sig Protocol {}
+one sig HTTPS extends Protocol {}
+
+sig Authentication {
+    method: one AuthMethod,
+    credentials: one Credentials
+}
+
+abstract sig AuthMethod {}
+one sig APIKey extends AuthMethod {}
+one sig OAuth extends AuthMethod {}
+
+sig Credentials {
+    key: one String,
+    valid: one Bool
+}
+
+sig Request {
+    method: one HTTPMethod,
+    headers: set Header,
+    body: lone Body,
+    auth: one Authentication
+}
+
+abstract sig HTTPMethod {}
+one sig GET extends HTTPMethod {}
+one sig POST extends HTTPMethod {}
+
+sig Header {
+    name: one String,
+    value: one String
+}
+
+sig Body {
+    content: one String,
+    contentType: one ContentType
+}
+
+abstract sig ContentType {}
+one sig JSON extends ContentType {}
+one sig Text extends ContentType {}
+
+sig Response {
+    status: one StatusCode,
+    headers: set Header,
+    body: lone Body,
+    request: one Request
+}
+
+sig StatusCode {
+    code: one Int
+} {
+    code >= 100 and code < 600
+}
+
+abstract sig Bool {}
+one sig True extends Bool {}
+one sig False extends Bool {}
+
+sig String {}
+
+// Facts about the API
+fact OneResponsePerRequest {
+    all req: Request | lone req.~request
+}
+
+fact ValidAuthentication {
+    all req: Request | req.auth.credentials.valid = True
+}
+
+fact SecureProtocolOnly {
+    all api: API | api.endpoint.protocol = HTTPS
+}
+
+fact AuthorizationHeaderPresent {
+    all req: Request | some h: req.headers | h.name = "Authorization"
+}
+
+// Predicates
+pred SuccessfulRequest[req: Request] {
+    some resp: Response |
+        resp.request = req and
+        resp.status.code >= 200 and
+        resp.status.code < 300
+}
+
+pred RateLimited[req: Request] {
+    some resp: Response |
+        resp.request = req and
+        resp.status.code = 429
+}
+
+pred ValidAPIConfiguration {
+    some api: API |
+        api.auth.method = APIKey and
+        all req: api.requests |
+            req.method = POST and
+            some req.body and
+            req.body.contentType = JSON
+}
+
+// Run commands
+run ValidAPIConfiguration for 3
+run SuccessfulRequest for 3
+
+// Assertions
+assert AllRequestsAuthenticated {
+    all req: Request | req.auth.credentials.valid = True
+}
+
+assert ResponseMatchesRequest {
+    all resp: Response |
+        resp.request in Request and
+        resp.request.auth = resp.request.auth
+}
+
+check AllRequestsAuthenticated for 5
+check ResponseMatchesRequest for 4

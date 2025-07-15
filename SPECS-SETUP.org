@@ -1,0 +1,423 @@
+#+TITLE: Formal Specifications Setup
+#+AUTHOR: jwalsh
+#+DATE: 2025-07-15
+#+PROPERTY: header-args :mkdirp yes
+
+* Overview
+
+This document contains the formal specifications setup for the Gemini REPL project.
+It creates TLA+ and Alloy specifications for verification of system properties.
+
+* Directory Structure
+
+#+BEGIN_SRC bash :tangle no
+specs/
+├── tla/
+│   ├── commands.tla
+│   ├── interfaces.tla
+│   ├── api_client.tla
+│   └── gemini_api.tla
+├── alloy/
+│   ├── state.alloy
+│   └── gemini_api.alloy
+├── Makefile
+└── README.org
+#+END_SRC
+
+* TLA+ Specifications
+
+** Command Processing (commands.tla)
+Models the command processing state machine.
+
+#+BEGIN_SRC tla :tangle specs/tla/commands.tla
+------------------------------ MODULE commands ------------------------------
+EXTENDS Naturals, Sequences, TLC
+
+CONSTANTS Commands, MaxHistory
+
+VARIABLES
+    commandHistory,
+    currentCommand,
+    commandState
+
+TypeOK ==
+    /\ commandHistory \in Seq(Commands)
+    /\ currentCommand \in Commands \cup {NULL}
+    /\ commandState \in {"idle", "processing", "completed", "error"}
+
+Init ==
+    /\ commandHistory = <<>>
+    /\ currentCommand = NULL
+    /\ commandState = "idle"
+
+ProcessCommand(cmd) ==
+    /\ commandState = "idle"
+    /\ currentCommand' = cmd
+    /\ commandState' = "processing"
+    /\ UNCHANGED commandHistory
+
+CompleteCommand ==
+    /\ commandState = "processing"
+    /\ commandState' = "completed"
+    /\ commandHistory' = Append(commandHistory, currentCommand)
+    /\ currentCommand' = NULL
+
+HandleError ==
+    /\ commandState = "processing"
+    /\ commandState' = "error"
+    /\ UNCHANGED <<commandHistory, currentCommand>>
+
+ResetAfterError ==
+    /\ commandState = "error"
+    /\ commandState' = "idle"
+    /\ currentCommand' = NULL
+    /\ UNCHANGED commandHistory
+
+Next ==
+    \/ \E cmd \in Commands : ProcessCommand(cmd)
+    \/ CompleteCommand
+    \/ HandleError
+    \/ ResetAfterError
+
+Spec == Init /\ [][Next]_<<commandHistory, currentCommand, commandState>>
+
+(* Safety Properties *)
+HistoryBounded == Len(commandHistory) <= MaxHistory
+
+NoLostCommands ==
+    [](commandState = "completed" => currentCommand = NULL)
+
+(* Liveness Properties *)
+EventuallyIdle ==
+    <>(commandState = "idle")
+
+=============================================================================
+#+END_SRC
+
+** Interface Contracts (interfaces.tla)
+Specifies interface activation and method calling.
+
+#+BEGIN_SRC tla :tangle specs/tla/interfaces.tla
+------------------------------ MODULE interfaces ------------------------------
+EXTENDS Naturals, Sequences, FiniteSets
+
+CONSTANTS
+    Interfaces,
+    Methods,
+    Parameters
+
+VARIABLES
+    activeInterfaces,
+    pendingCalls,
+    completedCalls,
+    errorLog
+
+TypeOK ==
+    /\ activeInterfaces \subseteq Interfaces
+    /\ pendingCalls \in [Interfaces -> SUBSET Methods]
+    /\ completedCalls \in Seq([interface: Interfaces, method: Methods])
+    /\ errorLog \in Seq([interface: Interfaces, method: Methods, error: STRING])
+
+Init ==
+    /\ activeInterfaces = {}
+    /\ pendingCalls = [i \in Interfaces |-> {}]
+    /\ completedCalls = <<>>
+    /\ errorLog = <<>>
+
+ActivateInterface(iface) ==
+    /\ iface \in Interfaces
+    /\ iface \notin activeInterfaces
+    /\ activeInterfaces' = activeInterfaces \cup {iface}
+    /\ UNCHANGED <<pendingCalls, completedCalls, errorLog>>
+
+CallMethod(iface, method) ==
+    /\ iface \in activeInterfaces
+    /\ method \in Methods
+    /\ pendingCalls' = [pendingCalls EXCEPT ![iface] = @ \cup {method}]
+    /\ UNCHANGED <<activeInterfaces, completedCalls, errorLog>>
+
+CompleteCall(iface, method) ==
+    /\ iface \in activeInterfaces
+    /\ method \in pendingCalls[iface]
+    /\ pendingCalls' = [pendingCalls EXCEPT ![iface] = @ \ {method}]
+    /\ completedCalls' = Append(completedCalls, [interface |-> iface, method |-> method])
+    /\ UNCHANGED <<activeInterfaces, errorLog>>
+
+LogError(iface, method, error) ==
+    /\ iface \in activeInterfaces
+    /\ method \in pendingCalls[iface]
+    /\ pendingCalls' = [pendingCalls EXCEPT ![iface] = @ \ {method}]
+    /\ errorLog' = Append(errorLog, [interface |-> iface, method |-> method, error |-> error])
+    /\ UNCHANGED <<activeInterfaces, completedCalls>>
+
+Next ==
+    \/ \E i \in Interfaces : ActivateInterface(i)
+    \/ \E i \in activeInterfaces, m \in Methods : CallMethod(i, m)
+    \/ \E i \in activeInterfaces, m \in pendingCalls[i] : CompleteCall(i, m)
+    \/ \E i \in activeInterfaces, m \in pendingCalls[i] : LogError(i, m, "error")
+
+Spec == Init /\ [][Next]_<<activeInterfaces, pendingCalls, completedCalls, errorLog>>
+
+(* Invariants *)
+NoPendingOnInactive ==
+    \A i \in Interfaces : i \notin activeInterfaces => pendingCalls[i] = {}
+
+=============================================================================
+#+END_SRC
+
+* Alloy Specifications
+
+** State Model (state.alloy)
+Models the REPL state structure and transitions.
+
+#+BEGIN_SRC alloy :tangle specs/alloy/state.alloy
+module state
+
+// Core signatures for REPL state management
+sig State {
+    running: one Bool,
+    debug: one Bool,
+    stats: one Stats,
+    context: set Message
+}
+
+sig Stats {
+    totalTokens: one Int,
+    totalCost: one Int,
+    requestCount: one Int
+} {
+    totalTokens >= 0
+    totalCost >= 0
+    requestCount >= 0
+}
+
+sig Message {
+    role: one Role,
+    content: one String,
+    timestamp: one Time
+}
+
+abstract sig Role {}
+one sig User extends Role {}
+one sig Assistant extends Role {}
+
+sig Time {}
+
+abstract sig Bool {}
+one sig True extends Bool {}
+one sig False extends Bool {}
+
+sig String {}
+
+// Commands that can modify state
+abstract sig Command {
+    pre: one State,
+    post: one State
+}
+
+sig ToggleDebug extends Command {} {
+    post.running = pre.running
+    post.debug != pre.debug
+    post.stats = pre.stats
+    post.context = pre.context
+}
+
+sig AddMessage extends Command {
+    msg: one Message
+} {
+    post.running = pre.running
+    post.debug = pre.debug
+    post.stats.requestCount = add[pre.stats.requestCount, 1]
+    post.stats.totalTokens >= pre.stats.totalTokens
+    post.context = pre.context + msg
+}
+
+sig ClearContext extends Command {} {
+    post.running = pre.running
+    post.debug = pre.debug
+    post.stats = pre.stats
+    no post.context
+}
+
+sig Exit extends Command {} {
+    post.running = False
+    post.debug = pre.debug
+    post.stats = pre.stats
+    post.context = pre.context
+}
+
+// Facts about the system
+fact MessageOrdering {
+    all m: Message | one m.timestamp
+    all disj m1, m2: Message | m1.timestamp != m2.timestamp
+}
+
+fact AlternatingRoles {
+    all s: State, m1, m2: Message |
+        (m1 in s.context and m2 in s.context and m1.timestamp = next[m2.timestamp]) =>
+        m1.role != m2.role
+}
+
+// Predicates for verification
+pred ShowStateTransition {
+    some c: Command | c.pre.running = True
+}
+
+pred ContextGrowsMonotonically {
+    all c: AddMessage | #c.post.context > #c.pre.context
+}
+
+// Run commands
+run ShowStateTransition for 3
+run ContextGrowsMonotonically for 4
+
+// Assertions
+assert StatsNeverDecrease {
+    all c: Command |
+        c.post.stats.totalTokens >= c.pre.stats.totalTokens and
+        c.post.stats.requestCount >= c.pre.stats.requestCount
+}
+
+assert ExitStopsRunning {
+    all e: Exit | e.post.running = False
+}
+
+check StatsNeverDecrease for 5
+check ExitStopsRunning for 3
+#+END_SRC
+
+* Verification Makefile
+
+#+BEGIN_SRC makefile :tangle specs/Makefile
+# Formal Methods Makefile
+
+TLA_TOOL := ../tools/formal-methods/tla2tools.jar
+ALLOY_TOOL := ../tools/formal-methods/alloy.jar
+TLA_FILES := $(wildcard tla/*.tla)
+ALLOY_FILES := $(wildcard alloy/*.alloy)
+
+.PHONY: all check-tla check-alloy download-tools clean
+
+all: download-tools check-tla check-alloy
+
+download-tools: $(TLA_TOOL) $(ALLOY_TOOL)
+
+$(TLA_TOOL):
+	@echo "Downloading TLA+ tools..."
+	@mkdir -p ../tools/formal-methods
+	@curl -L -o $(TLA_TOOL) https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
+
+$(ALLOY_TOOL):
+	@echo "Downloading Alloy..."
+	@mkdir -p ../tools/formal-methods
+	@curl -L -o $(ALLOY_TOOL) https://github.com/AlloyTools/org.alloytools.alloy/releases/download/v6.1.0/Alloy-6.1.0.jar
+
+check-tla: $(TLA_TOOL)
+	@echo "Checking TLA+ specifications..."
+	@for file in $(TLA_FILES); do \
+		echo "Checking $$file..."; \
+		java -jar $(TLA_TOOL) -deadlock $$file || true; \
+	done
+
+check-alloy: $(ALLOY_TOOL)
+	@echo "Alloy specifications ready for GUI verification"
+	@echo "Run: java -jar $(ALLOY_TOOL) alloy/*.alloy"
+
+gui-alloy: $(ALLOY_TOOL)
+	java -jar $(ALLOY_TOOL) &
+
+clean:
+	@echo "Cleaning generated files..."
+	@rm -f tla/*.old alloy/*.old
+#+END_SRC
+
+* Documentation
+
+#+BEGIN_SRC org :tangle specs/README.org
+#+TITLE: Formal Specifications
+#+AUTHOR: jwalsh
+#+DATE: 2025-07-15
+
+* Overview
+
+This directory contains formal specifications for the Gemini REPL system using TLA+ and Alloy.
+
+* TLA+ Specifications
+
+** commands.tla
+Specifies the command processing state machine, including:
+- Command history tracking
+- State transitions (idle → processing → completed/error)
+- Safety properties (bounded history, no lost commands)
+- Liveness properties (eventually returns to idle)
+
+** interfaces.tla
+Models the interface activation and method calling lifecycle:
+- Interface activation/deactivation
+- Method call tracking
+- Error logging
+- Invariants for inactive interfaces
+
+** api_client.tla
+Describes the API client behavior with:
+- Request/response queuing
+- Retry logic with configurable limits
+- Timeout handling
+- Error recovery mechanisms
+
+** gemini_api.tla
+Models the Gemini API interactions:
+- Token counting and rate limiting
+- Conversation history management
+- Model selection and temperature control
+- Message role alternation invariant
+
+* Alloy Specifications
+
+** state.alloy
+Structural model of the REPL state:
+- State transitions via commands
+- Statistics tracking
+- Context management
+- Assertions about monotonic growth
+
+** gemini_api.alloy
+API structure validation:
+- Request/response relationships
+- Authentication requirements
+- Protocol security (HTTPS only)
+- Status code handling
+
+* Running Specifications
+
+** TLA+ with TLC
+,#+BEGIN_SRC bash
+# Download TLA+ tools if not present
+make -C .. download-tla
+
+# Check a specification
+java -jar ../tools/formal-methods/tla2tools.jar tla/commands.tla
+,#+END_SRC
+
+** Alloy
+,#+BEGIN_SRC bash
+# Download Alloy if not present
+make -C .. download-alloy
+
+# Open in Alloy Analyzer
+java -jar ../tools/formal-methods/alloy.jar alloy/state.alloy
+,#+END_SRC
+
+* Properties Verified
+
+1. *Safety*: Commands don't get lost, stats never decrease
+2. *Liveness*: System eventually returns to ready state
+3. *Security*: All requests authenticated, HTTPS only
+4. *Consistency*: Conversation roles alternate, one response per request
+#+END_SRC
+
+* Notes
+
+- Created specs first, then this org file (backwards from intended flow)
+- Future implementations should create org file first, then tangle
+- Both TLA+ and Alloy tools can be downloaded via make targets

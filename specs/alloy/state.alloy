@@ -1,0 +1,113 @@
+module state
+
+// Core signatures for REPL state management
+sig State {
+    running: one Bool,
+    debug: one Bool,
+    stats: one Stats,
+    context: set Message
+}
+
+sig Stats {
+    totalTokens: one Int,
+    totalCost: one Int,
+    requestCount: one Int
+} {
+    totalTokens >= 0
+    totalCost >= 0
+    requestCount >= 0
+}
+
+sig Message {
+    role: one Role,
+    content: one String,
+    timestamp: one Time
+}
+
+abstract sig Role {}
+one sig User extends Role {}
+one sig Assistant extends Role {}
+
+sig Time {}
+
+abstract sig Bool {}
+one sig True extends Bool {}
+one sig False extends Bool {}
+
+sig String {}
+
+// Commands that can modify state
+abstract sig Command {
+    pre: one State,
+    post: one State
+}
+
+sig ToggleDebug extends Command {} {
+    post.running = pre.running
+    post.debug != pre.debug
+    post.stats = pre.stats
+    post.context = pre.context
+}
+
+sig AddMessage extends Command {
+    msg: one Message
+} {
+    post.running = pre.running
+    post.debug = pre.debug
+    post.stats.requestCount = add[pre.stats.requestCount, 1]
+    post.stats.totalTokens >= pre.stats.totalTokens
+    post.context = pre.context + msg
+}
+
+sig ClearContext extends Command {} {
+    post.running = pre.running
+    post.debug = pre.debug
+    post.stats = pre.stats
+    no post.context
+}
+
+sig Exit extends Command {} {
+    post.running = False
+    post.debug = pre.debug
+    post.stats = pre.stats
+    post.context = pre.context
+}
+
+// Facts about the system
+fact MessageOrdering {
+    all m: Message | one m.timestamp
+    all disj m1, m2: Message | m1.timestamp != m2.timestamp
+}
+
+fact AlternatingRoles {
+    all s: State, m1, m2: Message |
+        (m1 in s.context and m2 in s.context and m1.timestamp = next[m2.timestamp]) =>
+        m1.role != m2.role
+}
+
+// Predicates for verification
+pred ShowStateTransition {
+    some c: Command | c.pre.running = True
+}
+
+pred ContextGrowsMonotonically {
+    all c: AddMessage | #c.post.context > #c.pre.context
+}
+
+// Run commands
+run ShowStateTransition for 3
+run ContextGrowsMonotonically for 4
+
+// Assertions
+assert StatsNeverDecrease {
+    all c: Command |
+        c.post.stats.totalTokens >= c.pre.stats.totalTokens and
+        c.post.stats.requestCount >= c.pre.stats.requestCount
+}
+
+assert ExitStopsRunning {
+    all e: Exit | e.post.running = False
+}
+
+check StatsNeverDecrease for 5
+check ExitStopsRunning for 3

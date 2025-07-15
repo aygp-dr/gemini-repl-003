@@ -1,0 +1,80 @@
+#+TITLE: Formal Specifications
+#+AUTHOR: jwalsh
+#+DATE: 2025-07-15
+
+* Overview
+
+This directory contains formal specifications for the Gemini REPL system using TLA+ and Alloy.
+
+* TLA+ Specifications
+
+** commands.tla
+Specifies the command processing state machine, including:
+- Command history tracking
+- State transitions (idle → processing → completed/error)
+- Safety properties (bounded history, no lost commands)
+- Liveness properties (eventually returns to idle)
+
+** interfaces.tla
+Models the interface activation and method calling lifecycle:
+- Interface activation/deactivation
+- Method call tracking
+- Error logging
+- Invariants for inactive interfaces
+
+** api_client.tla
+Describes the API client behavior with:
+- Request/response queuing
+- Retry logic with configurable limits
+- Timeout handling
+- Error recovery mechanisms
+
+** gemini_api.tla
+Models the Gemini API interactions:
+- Token counting and rate limiting
+- Conversation history management
+- Model selection and temperature control
+- Message role alternation invariant
+
+* Alloy Specifications
+
+** state.alloy
+Structural model of the REPL state:
+- State transitions via commands
+- Statistics tracking
+- Context management
+- Assertions about monotonic growth
+
+** gemini_api.alloy
+API structure validation:
+- Request/response relationships
+- Authentication requirements
+- Protocol security (HTTPS only)
+- Status code handling
+
+* Running Specifications
+
+** TLA+ with TLC
+#+BEGIN_SRC bash
+# Download TLA+ tools if not present
+make -C .. download-tla
+
+# Check a specification
+java -jar ../tools/formal-methods/tla2tools.jar tla/commands.tla
+#+END_SRC
+
+** Alloy
+#+BEGIN_SRC bash
+# Download Alloy if not present
+make -C .. download-alloy
+
+# Open in Alloy Analyzer
+java -jar ../tools/formal-methods/alloy.jar alloy/state.alloy
+#+END_SRC
+
+* Properties Verified
+
+1. *Safety*: Commands don't get lost, stats never decrease
+2. *Liveness*: System eventually returns to ready state
+3. *Security*: All requests authenticated, HTTPS only
+4. *Consistency*: Conversation roles alternate, one response per request

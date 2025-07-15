@@ -61,6 +61,19 @@ clean:
 	npm run clean
 	rm -rf node_modules
 
+.PHONY: verify
+verify:
+	$(MAKE) -C specs check-tla
+	$(MAKE) -C specs check-alloy
+
+.PHONY: download-tla
+download-tla:
+	$(MAKE) -C specs download-tools
+
+.PHONY: download-alloy
+download-alloy:
+	$(MAKE) -C specs download-tools
+
 .PHONY: all
 all: lint test build
 	@echo "Quality gates passed!"
