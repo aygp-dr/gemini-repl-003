@@ -56,32 +56,35 @@
   (let [data (js/JSON.stringify 
                #js {:contents 
                     #js [#js {:parts 
-                              #js [#js {:text prompt}]}]})]
-    (.request https
-              #js {:hostname api-endpoint
-                   :path (str "/v1beta/models/gemini-pro:generateContent?key=" 
-                             api-key)
-                   :method "POST"
-                   :headers #js {"Content-Type" "application/json"
-                                "Content-Length" (.-length data)}}
-              (fn [res]
-                (let [chunks #js []]
-                  (.on res "data" (fn [chunk]
-                                   (.push chunks chunk)))
-                  (.on res "end" (fn []
-                                  (try
-                                    (let [response (js/JSON.parse 
-                                                   (.toString (.concat js/Buffer chunks)))
-                                          text (-> response
-                                                 (.-candidates)
-                                                 (aget 0)
-                                                 (.-content)
-                                                 (.-parts)
-                                                 (aget 0)
-                                                 (.-text))]
-                                      (callback nil text))
-                                    (catch js/Error e
-                                      (callback e nil))))))))))
+                              #js [#js {:text prompt}]}]})
+        req (.request https
+                     #js {:hostname api-endpoint
+                          :path (str "/v1beta/models/gemini-2.0-flash-exp:generateContent?key=" 
+                                    api-key)
+                          :method "POST"
+                          :headers #js {"Content-Type" "application/json"
+                                       "Content-Length" (.-length data)}}
+                     (fn [res]
+                       (let [chunks #js []]
+                         (.on res "data" (fn [chunk]
+                                          (.push chunks chunk)))
+                         (.on res "end" (fn []
+                                         (try
+                                           (let [response (js/JSON.parse 
+                                                          (.toString (.concat js/Buffer chunks)))
+                                                 text (-> response
+                                                        (.-candidates)
+                                                        (aget 0)
+                                                        (.-content)
+                                                        (.-parts)
+                                                        (aget 0)
+                                                        (.-text))]
+                                             (callback nil text))
+                                           (catch js/Error e
+                                             (callback e nil))))))))]
+    (.on req "error" (fn [e] (callback e nil)))
+    (.write req data)
+    (.end req)))
 
 ;; REPL interface
 (defn create-interface []

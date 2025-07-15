@@ -1,0 +1,50 @@
+#!/usr/bin/env expect
+
+# Test Gemini API integration
+set timeout 30
+
+# Start REPL with environment
+spawn env GEMINI_API_KEY=$env(GEMINI_API_KEY) node target/main.js
+
+# Wait for banner
+expect "=== Gemini REPL ==="
+expect "gemini> "
+
+# Enable debug mode
+send "/debug\r"
+expect "Debug mode: ON"
+expect "gemini> "
+
+# Test simple calculation
+send "What is 40 + 2?\r"
+expect {
+    -re ".*42.*" {
+        puts "\nAPI test passed: Got response containing '42'"
+    }
+    timeout {
+        puts "\nAPI test failed: Timeout waiting for response"
+        exit 1
+    }
+}
+
+# Wait for next prompt
+expect "gemini> "
+
+# Test another query
+send "Write a haiku about code.\r"
+expect {
+    -re ".*\n.*\n.*" {
+        puts "\nAPI test passed: Got multi-line response"
+    }
+    timeout {
+        puts "\nAPI test failed: Timeout waiting for haiku"
+        exit 1
+    }
+}
+
+# Exit cleanly
+expect "gemini> "
+send "/exit\r"
+expect "Goodbye!"
+
+puts "\nAll API tests passed!"

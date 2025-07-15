@@ -1,0 +1,102 @@
+#+TITLE: Gemini API Integration Experiment
+#+AUTHOR: jwalsh
+#+DATE: 2025-07-15
+#+TAGS: api, integration, debugging
+
+* Problem Statement
+
+The REPL successfully makes API calls to Gemini but responses are not displayed before the REPL exits.
+
+* Investigation
+
+** Test 1: Direct API Call
+#+BEGIN_SRC bash
+curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent" \
+  -H 'Content-Type: application/json' \
+  -H "x-goog-api-key: $GEMINI_API_KEY" \
+  -X POST \
+  -d '{
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "What is 40 + 2?"
+          }
+        ]
+      }
+    ]
+  }' | jq -r '.candidates[0].content.parts[0].text'
+#+END_SRC
+
+Result: "40 + 2 = 42" ✓
+
+** Test 2: REPL with Debug Mode
+#+BEGIN_SRC bash
+echo -e "/debug\nWhat is 40 + 2?\n/exit" | node target/main.js
+#+END_SRC
+
+Result: Shows "[DEBUG] Sending to Gemini API..." but exits before response ✗
+
+** Test 3: Model Name
+- Current code uses: gemini-2.0-flash-exp ✓
+- API endpoint: /v1beta/models/{model}:generateContent ✓
+
+* Root Cause Analysis
+
+The issue appears to be timing-related. When input is piped to the REPL:
+1. All lines are processed immediately
+2. "/exit" command executes before API response arrives
+3. Process exits without waiting for pending async operations
+
+* Proposed Solutions
+
+** Solution 1: Interactive Testing
+Use expect script with proper timing:
+#+BEGIN_SRC tcl
+#!/usr/bin/env expect
+set timeout 30
+spawn node target/main.js
+expect "gemini> "
+send "What is 40 + 2?\r"
+expect "42"
+expect "gemini> "
+send "/exit\r"
+expect eof
+#+END_SRC
+
+** Solution 2: Add Request Tracking
+Track pending requests and wait before exit:
+#+BEGIN_SRC clojure
+(defonce pending-requests (atom 0))
+
+(defn make-request [prompt callback]
+  (swap! pending-requests inc)
+  ;; ... existing code ...
+  (callback (fn [err res]
+            (swap! pending-requests dec)
+            ;; ... handle response ...)))
+#+END_SRC
+
+** Solution 3: Manual Interactive Test
+Run REPL interactively without piping:
+#+BEGIN_SRC bash
+node target/main.js
+# Then type: What is 40 + 2?
+# Wait for response
+# Then type: /exit
+#+END_SRC
+
+* Verification Steps
+
+1. ✓ API key is valid (curl test passes)
+2. ✓ Model name updated to gemini-2.0-flash-exp
+3. ✓ Request is properly constructed with .write() and .end()
+4. ✓ Error handler attached to request
+5. ✗ Response not displayed in non-interactive mode
+
+* Recommendations
+
+1. For CI/CD testing: Use expect scripts with proper timeouts
+2. For development: Test interactively
+3. For integration tests: Implement request tracking
+4. Consider adding a /wait command for testing
