@@ -1,0 +1,94 @@
+#+TITLE: Expect Testing Experiments
+#+AUTHOR: jwalsh
+#+DATE: 2025-07-15
+#+TAGS: testing, expect, integration
+
+* Overview
+
+Experiments with using Expect for REPL integration testing.
+
+* Why Expect?
+
+1. Natural fit for testing interactive CLI applications
+2. Can verify exact output including prompts
+3. Handles timing and buffering automatically
+4. Scriptable test sequences
+
+* Test Script Structure
+
+** Basic Template
+#+BEGIN_SRC tcl
+#!/usr/bin/env expect
+
+# Set timeout for operations
+set timeout 10
+
+# Start the REPL
+spawn node target/main.js
+
+# Wait for initial prompt
+expect "gemini> "
+
+# Test a command
+send "/help\r"
+expect "Available commands:"
+expect "gemini> "
+
+# Exit cleanly
+send "/exit\r"
+expect "Goodbye!"
+
+puts "All tests passed!"
+#+END_SRC
+
+* Test Scenarios
+
+** Scenario 1: Command Verification
+Test all slash commands work correctly:
+- /help - displays command list
+- /clear - clears screen
+- /stats - shows usage statistics
+- /debug - toggles debug mode
+- /exit - exits cleanly
+
+** Scenario 2: Error Handling
+Test error conditions:
+- Missing API key
+- Invalid commands
+- Network failures (simulated)
+
+** Scenario 3: State Persistence
+Verify state changes persist:
+- Toggle debug mode and verify
+- Check stats increment
+- Verify context accumulation
+
+* Implementation Challenges
+
+** Environment Variables
+- Expect scripts need environment passed explicitly
+- Solution: Set environment in spawn command
+
+** Output Buffering
+- Node.js may buffer output
+- Solution: Force line buffering with stdbuf
+
+** ANSI Escape Sequences
+- Clear screen command uses ANSI codes
+- Solution: Match with wildcards or exact sequences
+
+* Best Practices
+
+1. Always set reasonable timeouts
+2. Use expect_before for common error handling
+3. Clean up with explicit exit commands
+4. Verify both positive and negative cases
+5. Document expected output format changes
+
+* Future Enhancements
+
+1. Parameterized test runs
+2. Coverage reporting integration
+3. Performance benchmarking
+4. Stress testing with rapid commands
+5. Multi-session testing for concurrency

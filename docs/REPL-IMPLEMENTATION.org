@@ -1,0 +1,149 @@
+#+TITLE: REPL Implementation Documentation
+#+AUTHOR: jwalsh
+#+DATE: 2025-07-15
+
+* Overview
+
+This document describes the core REPL implementation and documents fixes applied.
+
+* Architecture
+
+** Components
+
+1. *Main REPL Loop* (core.cljs)
+   - Readline interface for user input
+   - Command processing pipeline
+   - State management with atoms
+
+2. *Command System*
+   - Slash commands for REPL control
+   - Extensible command registry
+   - Command handlers with side effects
+
+3. *API Integration*
+   - HTTPS client using Node.js modules
+   - JSON request/response handling
+   - Error handling and retry logic
+
+* Implementation Details
+
+** State Management
+
+#+BEGIN_SRC clojure
+(defonce repl-state (atom {:running true
+                          :debug false
+                          :stats {:total-tokens 0
+                                  :total-cost 0
+                                  :request-count 0}}))
+#+END_SRC
+
+The REPL maintains global state for:
+- Running status
+- Debug mode toggle
+- Usage statistics tracking
+
+** Command Processing
+
+Commands are defined in a map structure:
+
+#+BEGIN_SRC clojure
+(def commands
+  {"/help" {:description "Show available commands"
+            :handler (fn [_] ...)}
+   "/exit" {:description "Exit the REPL"
+            :handler (fn [_] ...)}
+   ...})
+#+END_SRC
+
+Each command has:
+- Description for help text
+- Handler function that receives the command string
+
+** API Integration Points
+
+*** Request Construction
+
+#+BEGIN_SRC clojure
+(defn make-request [prompt callback]
+  (let [api-path (str "/v1beta/models/gemini-pro:generateContent?key=" api-key)
+        request-data (clj->js {:contents [{:parts [{:text prompt}]}]
+                              :generationConfig {:temperature temperature
+                                               :maxOutputTokens 2048}})
+        json-data (.stringify js/JSON request-data)]
+    ...))
+#+END_SRC
+
+*** Response Handling
+
+#+BEGIN_SRC clojure
+(defn handle-response [data callback]
+  (try
+    (let [response (js->clj (.parse js/JSON data) :keywordize-keys true)
+          text (-> response
+                  :candidates
+                  first
+                  :content
+                  :parts
+                  first
+                  :text)]
+      (callback nil text))
+    (catch js/Error e
+      (callback e nil))))
+#+END_SRC
+
+* Known Issues and Fixes
+
+** ClojureScript to JavaScript Interop
+
+*Issue*: =Error parsing Gemini API response: list argument must be Array #12=
+
+*Root Cause*: ClojureScript vectors are not automatically converted to JavaScript arrays when passed to Node.js Buffer methods.
+
+*Fix*: Convert ClojureScript vectors to JavaScript arrays before passing to Buffer.concat:
+
+#+BEGIN_SRC clojure
+;; Before (causes error)
+(js/Buffer.concat chunks)
+
+;; After (works correctly)
+(js/Buffer.concat (clj->js chunks))
+#+END_SRC
+
+** Error Handling
+
+*Issue*: Unhandled promise rejections when API calls fail
+
+*Fix*: Wrap all async operations in try-catch blocks and provide proper error callbacks:
+
+#+BEGIN_SRC clojure
+(.on response "error" 
+     (fn [err]
+       (callback err nil)))
+#+END_SRC
+
+* Testing Approach
+
+** Unit Tests
+- ClojureScript test suite using cljs.test
+- Tests for command handlers and state transitions
+- Mock API responses for testing
+
+** Integration Tests
+- Expect scripts for end-to-end REPL testing
+- Automated command sequence verification
+- Environment variable handling tests
+
+** Manual Testing Checklist
+1. ✓ All slash commands work correctly
+2. ✓ API key validation on startup
+3. ✓ Graceful error handling
+4. ✓ State persistence across commands
+5. ✓ Clean exit with proper cleanup
+
+* Future Improvements
+
+1. Add request timeout handling
+2. Implement request cancellation
+3. Add response streaming for long outputs
+4. Improve error messages with actionable hints
+5. Add command history with up/down arrow navigation

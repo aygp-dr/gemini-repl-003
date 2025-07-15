@@ -1,0 +1,65 @@
+#+TITLE: Buffer.concat ClojureScript Vector Fix
+#+AUTHOR: jwalsh
+#+DATE: 2025-07-15
+#+TAGS: bug, clojurescript, interop
+
+* Problem Statement
+
+Error encountered when parsing Gemini API response:
+#+BEGIN_EXAMPLE
+Error parsing Gemini API response: list argument must be Array #12
+#+END_EXAMPLE
+
+* Root Cause Analysis
+
+The Node.js =Buffer.concat()= method expects a JavaScript Array as its first argument. When passing a ClojureScript vector directly, it fails because ClojureScript vectors are not automatically converted to JavaScript arrays.
+
+* Solution
+
+Convert ClojureScript data structures to JavaScript before passing to Node.js APIs:
+
+#+BEGIN_SRC clojure
+;; Problem code
+(.on res "end"
+     (fn []
+       (let [body (.concat js/Buffer chunks)] ; chunks is a ClojureScript vector
+         (handle-response (.toString body) callback))))
+
+;; Fixed code
+(.on res "end"
+     (fn []
+       (let [body (.concat js/Buffer (clj->js chunks))] ; Convert to JS array
+         (handle-response (.toString body) callback))))
+#+END_SRC
+
+* Implementation Details
+
+** Affected Functions
+- =make-request= in core.cljs
+- Any function that accumulates response chunks
+
+** Current Implementation Status
+The fix has already been applied in the current codebase. The code uses =#js []= to create a JavaScript array directly:
+
+#+BEGIN_SRC clojure
+(let [chunks #js []] ; Creates JavaScript array, not ClojureScript vector
+  (.on res "data" (fn [chunk]
+                   (.push chunks chunk))) ; Uses JS array push
+  (.on res "end" (fn []
+                  (let [response (js/JSON.parse 
+                               (.toString (.concat js/Buffer chunks)))] ; Works correctly
+                    ...))))
+#+END_SRC
+
+** Testing
+1. Make an API call that returns chunked response
+2. Verify no "list argument must be Array" errors
+3. Confirm response is properly parsed
+
+* Lessons Learned
+
+1. Always be explicit about ClojureScript to JavaScript conversions
+2. Node.js APIs expect JavaScript native types
+3. Use =clj->js= for data structure conversion
+4. Use =array= for creating new JavaScript arrays
+5. Test with actual API responses, not just mocks
