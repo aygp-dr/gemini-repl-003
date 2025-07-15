@@ -305,12 +305,12 @@ download-tools: $(TLA_TOOL) $(ALLOY_TOOL)
 $(TLA_TOOL):
 	@echo "Downloading TLA+ tools..."
 	@mkdir -p ../tools/formal-methods
-	@curl -L -o $(TLA_TOOL) https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
+	@curl -L -o $@ https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
 
 $(ALLOY_TOOL):
 	@echo "Downloading Alloy..."
 	@mkdir -p ../tools/formal-methods
-	@curl -L -o $(ALLOY_TOOL) https://github.com/AlloyTools/org.alloytools.alloy/releases/download/v6.1.0/Alloy-6.1.0.jar
+	@curl -L -o $@ https://github.com/AlloyTools/org.alloytools.alloy/releases/download/v6.0.0/org.alloytools.alloy.dist.jar
 
 check-tla: $(TLA_TOOL)
 	@echo "Checking TLA+ specifications..."
