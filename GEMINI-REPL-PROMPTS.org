@@ -36,7 +36,8 @@ For each SETUP.org creation phase (Phases 2-5), follow this exact workflow:
 3. Verify all files were created correctly
 4. Stage and commit changes with descriptive message
 5. Add git notes documenting ALL prompts used during the phase
-6. Keep SETUP.org files until Phase 18 (final cleanup)
+6. Keep ALL *SETUP.org files (SETUP.org, SHARED-SETUP.org, NODE-SETUP.org, GITHUB-SETUP.org, etc.) until Phase 18
+7. Also keep any generated .bash files during development
 
 This ensures reproducibility and maintains a complete audit trail.
 

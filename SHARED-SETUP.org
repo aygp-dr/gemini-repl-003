@@ -1,0 +1,404 @@
+#+TITLE: Shared Infrastructure Setup
+#+AUTHOR: jwalsh + Claude
+#+DATE: 2025-07-15
+#+PROPERTY: header-args :mkdirp yes
+
+* Overview
+
+This file creates the Claude command infrastructure and additional project directories for change requests, experiments, and research.
+
+* Claude Command System
+
+** Command Directory Structure
+
+#+BEGIN_SRC bash :tangle yes
+mkdir -p .claude/commands
+mkdir -p change-requests
+mkdir -p experiments
+mkdir -p research
+#+END_SRC
+
+** Claude Commands
+
+*** README for Commands
+
+#+BEGIN_SRC markdown :tangle .claude/commands/README.md
+# Claude Commands
+
+Custom commands for Claude to assist with Gemini REPL development.
+
+## Available Commands
+
+- `analyze.md` - Code analysis and review
+- `create-cr.md` - Create change requests
+- `experiment.md` - Document experiments
+- `github.md` - GitHub integration helpers
+- `implement.md` - Implementation guidance
+- `mise-en-place.md` - Project setup and organization
+- `research.md` - Research documentation
+- `spec-check.md` - Formal specification verification
+
+## Usage
+
+Reference these commands when working with Claude on specific tasks.
+#+END_SRC
+
+*** Analyze Command
+
+#+BEGIN_SRC markdown :tangle .claude/commands/analyze.md
+# Analyze Command
+
+## Purpose
+Perform code analysis and review for the Gemini REPL project.
+
+## Usage
+Ask Claude to analyze code for:
+- ClojureScript idioms and best practices
+- Performance implications
+- Security considerations
+- Formal specification alignment
+
+## Context
+- Focus on functional programming principles
+- Consider REPL interaction patterns
+- Verify against TLA+ specifications when applicable
+#+END_SRC
+
+*** Create Change Request Command
+
+#+BEGIN_SRC markdown :tangle .claude/commands/create-cr.md
+# Create Change Request Command
+
+## Purpose
+Generate structured change requests for project improvements.
+
+## Template
+```markdown
+# Change Request: [Title]
+
+## Summary
+[Brief description]
+
+## Motivation
+[Why this change is needed]
+
+## Technical Design
+[Implementation details]
+
+## Testing Strategy
+[How to verify the change]
+
+## Impact Analysis
+[Effects on existing functionality]
+```
+
+## Filing Location
+Create in `change-requests/CR-YYYY-MM-DD-description.md`
+#+END_SRC
+
+*** Experiment Command
+
+#+BEGIN_SRC markdown :tangle .claude/commands/experiment.md
+# Experiment Command
+
+## Purpose
+Document and track experiments for the Gemini REPL project.
+
+## Process
+1. Define hypothesis
+2. Design experiment
+3. Execute and measure
+4. Document results
+5. Draw conclusions
+
+## Focus Areas
+- API integration patterns
+- Performance optimizations
+- User interaction improvements
+- Formal method applications
+#+END_SRC
+
+*** GitHub Command
+
+#+BEGIN_SRC markdown :tangle .claude/commands/github.md
+# GitHub Command
+
+## Purpose
+Assist with GitHub operations and integration.
+
+## Capabilities
+- Create issues with proper labels
+- Generate PR descriptions
+- Format commit messages
+- Manage GitHub Actions workflows
+
+## Conventions
+- Use conventional commits
+- Add co-author trailers
+- Reference issues in commits
+- Keep PRs focused and small
+#+END_SRC
+
+*** Implement Command
+
+#+BEGIN_SRC markdown :tangle .claude/commands/implement.md
+# Implement Command
+
+## Purpose
+Guide implementation of features for Gemini REPL.
+
+## Approach
+1. Review formal specifications
+2. Design ClojureScript implementation
+3. Consider REPL interaction model
+4. Implement with tests
+5. Verify against specifications
+
+## Key Considerations
+- Functional programming principles
+- Immutable data structures
+- Error handling patterns
+- API rate limiting
+#+END_SRC
+
+*** Mise en Place Command
+
+#+BEGIN_SRC markdown :tangle .claude/commands/mise-en-place.md
+# Mise en Place Command
+
+## Purpose
+Prepare and organize the development environment.
+
+## Checklist
+- [ ] Verify directory structure
+- [ ] Check tool availability
+- [ ] Confirm dependencies installed
+- [ ] Set up environment variables
+- [ ] Initialize formal method tools
+- [ ] Prepare test infrastructure
+
+## Verification
+Run `make setup` to verify environment readiness.
+#+END_SRC
+
+*** Research Command
+
+#+BEGIN_SRC markdown :tangle .claude/commands/research.md
+# Research Command
+
+## Purpose
+Document research findings and investigations.
+
+## Topics
+- Gemini API capabilities and limitations
+- ClojureScript REPL patterns
+- Formal specification techniques
+- Self-modifying code approaches
+
+## Documentation
+Store research in `research/` with clear titles and dates.
+#+END_SRC
+
+*** Spec Check Command
+
+#+BEGIN_SRC markdown :tangle .claude/commands/spec-check.md
+# Spec Check Command
+
+## Purpose
+Verify implementation against formal specifications.
+
+## Process
+1. Identify relevant TLA+ or Alloy specs
+2. Map implementation to specification
+3. Check invariants and properties
+4. Document any deviations
+5. Update specs if needed
+
+## Tools
+- TLC for TLA+ checking
+- Alloy Analyzer for structural verification
+- Property-based testing in ClojureScript
+#+END_SRC
+
+* Project Directories
+
+** Change Requests Directory
+
+#+BEGIN_SRC markdown :tangle change-requests/README.md
+# Change Requests
+
+This directory contains formal change requests for the Gemini REPL project.
+
+## Naming Convention
+`CR-YYYY-MM-DD-brief-description.md`
+
+## Status Tracking
+- DRAFT: Under development
+- REVIEW: Ready for review
+- APPROVED: Approved for implementation
+- IMPLEMENTED: Completed
+- REJECTED: Not proceeding
+
+## Process
+1. Create change request using template
+2. Review and refine
+3. Implement if approved
+4. Update status when complete
+#+END_SRC
+
+** Experiments Directory
+
+#+BEGIN_SRC markdown :tangle experiments/README.md
+# Experiments
+
+This directory contains experimental code and proofs of concept.
+
+## Organization
+- Create subdirectory for each experiment
+- Include README with hypothesis and results
+- Keep experimental code isolated
+- Document findings for future reference
+
+## Examples
+- API integration approaches
+- Performance optimization techniques
+- UI/UX improvements
+- Formal verification experiments
+#+END_SRC
+
+** Research Directory
+
+#+BEGIN_SRC markdown :tangle research/README.md
+# Research
+
+This directory contains research documentation and findings.
+
+## Topics
+- Gemini API documentation and quirks
+- ClojureScript REPL implementation patterns
+- Formal methods in practice
+- Self-modifying system architectures
+
+## Format
+- Use Markdown or Org-mode
+- Include references and links
+- Date all research documents
+- Summarize key findings
+#+END_SRC
+
+* Git Hooks
+
+** Pre-commit Hook
+
+#+BEGIN_SRC bash :tangle .git/hooks/pre-commit :shebang #!/bin/sh
+# Pre-commit hook for Gemini REPL project
+
+# Add trailing newlines to text files
+for file in $(git diff --cached --name-only); do
+    if file "$file" | grep -q text; then
+        if [ -f "$file" ] && [ "$(tail -c 1 "$file")" != "" ]; then
+            echo >> "$file"
+            git add "$file"
+        fi
+    fi
+done
+
+# Check for common issues
+echo "Running pre-commit checks..."
+
+# Check for TODO/FIXME in staged files
+if git diff --cached | grep -E '^\+.*(TODO|FIXME)'; then
+    echo "Warning: TODO or FIXME found in staged changes"
+fi
+
+exit 0
+#+END_SRC
+
+* Project Configuration
+
+** Claude Context File
+
+#+BEGIN_SRC markdown :tangle .claude/context.md
+# Gemini REPL Project Context
+
+## Overview
+Building a ClojureScript REPL that interfaces with Google's Gemini API, with formal specifications using TLA+ and Alloy.
+
+## Key Technologies
+- ClojureScript with Shadow-CLJS
+- Node.js runtime
+- Gemini API integration
+- TLA+ for behavioral specifications
+- Alloy for structural modeling
+
+## Architecture Principles
+- Functional programming
+- Immutable data structures
+- Formal verification
+- Self-modifying capabilities
+
+## Development Workflow
+1. Specify formally (TLA+/Alloy)
+2. Implement in ClojureScript
+3. Verify against specifications
+4. Test thoroughly
+5. Document changes
+
+## Project Goals
+- Simple, effective REPL interface
+- Reliable API integration
+- Formal correctness
+- Self-improvement capabilities
+#+END_SRC
+
+* Development Tools
+
+** Git Aliases Setup
+
+#+BEGIN_SRC bash :tangle scripts/setup-git-aliases.sh :shebang #!/bin/sh
+# Setup useful git aliases for the project
+
+echo "Setting up git aliases..."
+
+# Add git notes alias
+git config alias.notes-log 'log --show-notes=*'
+
+# Add commit with trailer alias
+git config alias.commit-signed 'commit --trailer "Co-Authored-By: Claude <noreply@anthropic.com>"'
+
+# Show current phase
+git config alias.show-phase 'log --oneline -n 20 --grep="Phase"'
+
+echo "Git aliases configured successfully"
+#+END_SRC
+
+* Final Setup
+
+#+BEGIN_SRC bash :tangle scripts/shared-setup-verify.sh :shebang #!/bin/sh
+# Verify shared setup completed successfully
+
+echo "Verifying shared infrastructure setup..."
+
+# Check directories
+for dir in .claude/commands change-requests experiments research; do
+    if [ -d "$dir" ]; then
+        echo "✓ $dir exists"
+    else
+        echo "✗ $dir missing"
+        exit 1
+    fi
+done
+
+# Check command files
+for cmd in analyze create-cr experiment github implement mise-en-place research spec-check; do
+    if [ -f ".claude/commands/$cmd.md" ]; then
+        echo "✓ $cmd.md command exists"
+    else
+        echo "✗ $cmd.md command missing"
+        exit 1
+    fi
+done
+
+echo ""
+echo "Shared infrastructure setup verified successfully!"
+#+END_SRC
