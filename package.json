@@ -10,13 +10,19 @@
     "clean": "rm -rf target .shadow-cljs",
     "repl": "shadow-cljs cljs-repl app"
   },
-  "keywords": ["clojurescript", "repl", "gemini", "ai"],
+  "keywords": [
+    "clojurescript",
+    "repl",
+    "gemini",
+    "ai"
+  ],
   "author": "jwalsh",
   "license": "MIT",
   "dependencies": {
     "shadow-cljs": "^2.28.2"
   },
   "devDependencies": {
+    "clj-kondo": "^2025.6.5",
     "nodemon": "^3.0.2"
   }
 }

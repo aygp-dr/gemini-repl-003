@@ -5,6 +5,17 @@
 
 * CRITICAL PRE-FLIGHT INSTRUCTIONS ⚠️
 
+** OS COMPATIBILITY CHECK
+#+BEGIN_SRC bash
+uname -a
+#+END_SRC
+
+- **FreeBSD**: Use `gmake` instead of `make` throughout
+- **macOS/Linux**: Standard `make` works fine
+- **Windows**: Not tested, expect issues
+
+This guide was developed on FreeBSD 14.3-RELEASE. Adjust commands as needed for your OS.
+
 ** BEFORE YOU START - REMOVE THE PRE-COMMIT HOOK!
 #+BEGIN_SRC bash
 rm .git/hooks/pre-commit
