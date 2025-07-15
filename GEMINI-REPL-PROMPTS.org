@@ -514,6 +514,19 @@ Quality gates include:
 - Test execution
 - Zero warnings/errors policy
 
+** Tooling Validation
+After setting up quality gates, validate the linter is working:
+1. Intentionally break the code (e.g., add unused binding):
+   #+BEGIN_SRC clojure
+   (let [unused-var "This variable is never used"]
+     nil)
+   #+END_SRC
+2. Run `gmake lint` (or `make lint` on non-FreeBSD)
+3. Verify linter catches the issue with warning/error
+4. Fix the code and verify linter passes with 0 errors, 0 warnings
+
+This ensures the quality gates are actually functional!
+
 **Phase 14 Complete** → READY FOR CONTINUE
 
 * Phase 15: Makefile Completion (Wait for CONTINUE)

@@ -1,5 +1,4 @@
 {:linters {:unresolved-symbol {:exclude [(cljs.test/is [macroexpansion])]}
            :unused-binding {:level :warning}
            :unused-namespace {:level :warning}}
- :output {:include-files ["src/**/*.cljs" "test/**/*.cljs"]}
  :hooks {}}
