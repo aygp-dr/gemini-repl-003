@@ -1,0 +1,388 @@
+#+TITLE: Node.js and ClojureScript Development Setup
+#+AUTHOR: jwalsh + Claude
+#+DATE: 2025-07-15
+#+PROPERTY: header-args :mkdirp yes
+
+* Overview
+
+This file sets up the ClojureScript development environment with Shadow-CLJS and creates the initial REPL implementation.
+
+* Package Configuration
+
+** Package.json
+
+#+BEGIN_SRC json :tangle package.json
+{
+  "name": "gemini-repl",
+  "version": "0.1.0",
+  "description": "A ClojureScript REPL for interacting with Google's Gemini API",
+  "main": "target/main.js",
+  "scripts": {
+    "dev": "shadow-cljs watch app",
+    "build": "shadow-cljs compile app",
+    "test": "shadow-cljs compile test && node target/test.js",
+    "clean": "rm -rf target .shadow-cljs",
+    "repl": "shadow-cljs cljs-repl app"
+  },
+  "keywords": ["clojurescript", "repl", "gemini", "ai"],
+  "author": "jwalsh",
+  "license": "MIT",
+  "dependencies": {
+    "shadow-cljs": "^2.28.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
+#+END_SRC
+
+** Shadow-CLJS Configuration
+
+#+BEGIN_SRC clojure :tangle shadow-cljs.edn
+{:source-paths ["src"]
+ 
+ :dependencies
+ [[org.clojure/clojure "1.11.1"]
+  [org.clojure/clojurescript "1.11.132"]]
+ 
+ :builds
+ {:app
+  {:target :node-script
+   :output-to "target/main.js"
+   :main gemini-repl.core/main
+   :devtools {:repl-init-ns gemini-repl.core}}
+  
+  :test
+  {:target :node-script
+   :output-to "target/test.js"
+   :main gemini-repl.test-runner/main
+   :devtools {:repl-init-ns gemini-repl.test-runner}}}}
+#+END_SRC
+
+* Source Code
+
+** Core REPL Implementation
+
+#+BEGIN_SRC clojure :tangle src/gemini_repl/core.cljs
+(ns gemini-repl.core
+  (:require [cljs.nodejs :as nodejs]
+            [clojure.string :as str]))
+
+;; Node.js requires
+(def readline (nodejs/require "readline"))
+(def https (nodejs/require "https"))
+(def fs (nodejs/require "fs"))
+
+;; Configuration
+(def api-key (or js/process.env.GEMINI_API_KEY ""))
+(def api-endpoint "generativelanguage.googleapis.com")
+
+;; State
+(defonce repl-state (atom {:running true
+                          :debug false
+                          :stats {:total-tokens 0
+                                  :total-cost 0
+                                  :request-count 0}}))
+
+;; Slash commands
+(def commands
+  {"/help" {:description "Show available commands"
+            :handler (fn [_]
+                      (println "\nAvailable commands:")
+                      (doseq [[cmd {:keys [description]}] commands]
+                        (println (str "  " cmd " - " description))))}
+   
+   "/exit" {:description "Exit the REPL"
+            :handler (fn [_]
+                      (println "Goodbye!")
+                      (swap! repl-state assoc :running false)
+                      (.exit js/process 0))}
+   
+   "/clear" {:description "Clear the screen"
+             :handler (fn [_]
+                       (print "\033[2J\033[H"))}
+   
+   "/stats" {:description "Show usage statistics"
+             :handler (fn [_]
+                       (let [{:keys [total-tokens total-cost request-count]} 
+                             (:stats @repl-state)]
+                         (println "\nUsage Statistics:")
+                         (println (str "  Requests: " request-count))
+                         (println (str "  Tokens: " total-tokens))
+                         (println (str "  Cost: $" (.toFixed total-cost 4)))))}
+   
+   "/debug" {:description "Toggle debug mode"
+             :handler (fn [_]
+                       (swap! repl-state update :debug not)
+                       (println (str "Debug mode: " 
+                                   (if (:debug @repl-state) "ON" "OFF"))))}})
+
+;; API interaction
+(defn make-request [prompt callback]
+  (let [data (js/JSON.stringify 
+               #js {:contents 
+                    #js [#js {:parts 
+                              #js [#js {:text prompt}]}]})]
+    (.request https
+              #js {:hostname api-endpoint
+                   :path (str "/v1beta/models/gemini-pro:generateContent?key=" 
+                             api-key)
+                   :method "POST"
+                   :headers #js {"Content-Type" "application/json"
+                                "Content-Length" (.-length data)}}
+              (fn [res]
+                (let [chunks #js []]
+                  (.on res "data" (fn [chunk]
+                                   (.push chunks chunk)))
+                  (.on res "end" (fn []
+                                  (try
+                                    (let [response (js/JSON.parse 
+                                                   (.toString (.concat js/Buffer chunks)))
+                                          text (-> response
+                                                 (.-candidates)
+                                                 (aget 0)
+                                                 (.-content)
+                                                 (.-parts)
+                                                 (aget 0)
+                                                 (.-text))]
+                                      (callback nil text))
+                                    (catch js/Error e
+                                      (callback e nil))))))))))
+
+;; REPL interface
+(defn create-interface []
+  (.createInterface readline
+                   #js {:input js/process.stdin
+                        :output js/process.stdout
+                        :prompt "gemini> "}))
+
+(defn process-input [rl input]
+  (let [trimmed (str/trim input)]
+    (cond
+      ;; Empty input
+      (empty? trimmed) 
+      (.prompt rl)
+      
+      ;; Slash command
+      (str/starts-with? trimmed "/")
+      (if-let [command (get commands trimmed)]
+        (do
+          ((:handler command) trimmed)
+          (when (:running @repl-state)
+            (.prompt rl)))
+        (do
+          (println (str "Unknown command: " trimmed))
+          (.prompt rl)))
+      
+      ;; Regular prompt
+      :else
+      (do
+        (when (:debug @repl-state)
+          (println "[DEBUG] Sending to Gemini API..."))
+        (make-request trimmed
+                     (fn [err response]
+                       (if err
+                         (println (str "Error: " (.-message err)))
+                         (do
+                           (println response)
+                           (swap! repl-state update-in [:stats :request-count] inc)))
+                       (.prompt rl)))))))
+
+(defn display-banner []
+  (println "")
+  (println "=== Gemini REPL ===")
+  (println "Type /help for commands")
+  (println ""))
+
+(defn main []
+  (when (empty? api-key)
+    (println "Error: GEMINI_API_KEY environment variable not set")
+    (.exit js/process 1))
+  
+  (display-banner)
+  
+  (let [rl (create-interface)]
+    (.prompt rl)
+    (.on rl "line" (partial process-input rl))
+    (.on rl "close" (fn []
+                     (println "\nGoodbye!")
+                     (.exit js/process 0)))))
+
+;; Enable direct execution
+(set! *main-cli-fn* main)
+#+END_SRC
+
+* Development Scripts
+
+** Build Script
+
+#+BEGIN_SRC bash :tangle scripts/build.sh :shebang #!/bin/sh
+# Build the ClojureScript application
+
+echo "Building Gemini REPL..."
+npx shadow-cljs compile app
+
+if [ $? -eq 0 ]; then
+    echo "Build successful!"
+    echo "Run with: node target/main.js"
+else
+    echo "Build failed!"
+    exit 1
+fi
+#+END_SRC
+
+** Development Script
+
+#+BEGIN_SRC bash :tangle scripts/dev.sh :shebang #!/bin/sh
+# Start development mode with hot reload
+
+echo "Starting Gemini REPL in development mode..."
+npx shadow-cljs watch app
+#+END_SRC
+
+** Run Script
+
+#+BEGIN_SRC bash :tangle scripts/run.sh :shebang #!/bin/sh
+# Run the compiled application
+
+if [ ! -f target/main.js ]; then
+    echo "Application not built. Running build first..."
+    ./scripts/build.sh
+fi
+
+echo "Starting Gemini REPL..."
+node target/main.js
+#+END_SRC
+
+* Test Infrastructure
+
+** Test Runner
+
+#+BEGIN_SRC clojure :tangle test/gemini_repl/test_runner.cljs
+(ns gemini-repl.test-runner
+  (:require [cljs.test :as t]
+            [gemini-repl.core-test]))
+
+(defn main []
+  (t/run-tests 'gemini-repl.core-test))
+
+(set! *main-cli-fn* main)
+#+END_SRC
+
+** Core Tests
+
+#+BEGIN_SRC clojure :tangle test/gemini_repl/core_test.cljs
+(ns gemini-repl.core-test
+  (:require [cljs.test :refer-macros [deftest is testing]]
+            [gemini-repl.core :as core]))
+
+(deftest test-commands-exist
+  (testing "Slash commands are defined"
+    (is (contains? core/commands "/help"))
+    (is (contains? core/commands "/exit"))
+    (is (contains? core/commands "/clear"))
+    (is (contains? core/commands "/stats"))
+    (is (contains? core/commands "/debug"))))
+
+(deftest test-initial-state
+  (testing "Initial REPL state"
+    (is (true? (:running @core/repl-state)))
+    (is (false? (:debug @core/repl-state)))
+    (is (= 0 (get-in @core/repl-state [:stats :total-tokens])))
+    (is (= 0 (get-in @core/repl-state [:stats :request-count])))))
+#+END_SRC
+
+* Environment Configuration
+
+** Development Environment Template
+
+#+BEGIN_SRC bash :tangle .env.development
+# Development environment configuration
+GEMINI_API_KEY=your-dev-api-key-here
+GEMINI_LOG_LEVEL=debug
+GEMINI_LOG_ENABLED=true
+NODE_ENV=development
+#+END_SRC
+
+* Documentation
+
+** Development Guide
+
+#+BEGIN_SRC markdown :tangle docs/DEVELOPMENT.md
+# Development Guide
+
+## Prerequisites
+- Node.js (v16 or later)
+- npm or yarn
+- Gemini API key
+
+## Setup
+1. Clone the repository
+2. Copy `.env.example` to `.env` and add your API key
+3. Run `npm install`
+4. Run `npm run build`
+
+## Development Commands
+- `npm run dev` - Start development with hot reload
+- `npm run build` - Build production version
+- `npm run test` - Run tests
+- `npm run repl` - Start ClojureScript REPL
+
+## Project Structure
+```
+src/
+└── gemini_repl/
+    └── core.cljs      # Main REPL implementation
+test/
+└── gemini_repl/
+    ├── test_runner.cljs
+    └── core_test.cljs
+```
+
+## Key Features
+- Slash command system
+- Gemini API integration
+- Usage statistics tracking
+- Debug mode
+- Conversation context (to be implemented)
+#+END_SRC
+
+* Verification Script
+
+#+BEGIN_SRC bash :tangle scripts/node-setup-verify.sh :shebang #!/bin/sh
+# Verify Node.js setup completed successfully
+
+echo "Verifying Node.js and ClojureScript setup..."
+
+# Check files
+for file in package.json shadow-cljs.edn; do
+    if [ -f "$file" ]; then
+        echo "✓ $file exists"
+    else
+        echo "✗ $file missing"
+        exit 1
+    fi
+done
+
+# Check source files
+if [ -f "src/gemini_repl/core.cljs" ]; then
+    echo "✓ Core implementation exists"
+else
+    echo "✗ Core implementation missing"
+    exit 1
+fi
+
+# Check scripts
+for script in build.sh dev.sh run.sh node-setup-verify.sh; do
+    if [ -f "scripts/$script" ]; then
+        echo "✓ scripts/$script exists"
+    else
+        echo "✗ scripts/$script missing"
+        exit 1
+    fi
+done
+
+echo ""
+echo "Node.js setup verified successfully!"
+echo "Next step: npm install"
+#+END_SRC
