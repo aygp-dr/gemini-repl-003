@@ -29,6 +29,17 @@ This document contains EVERY ACTUAL PROMPT from git notes analysis to reproduce 
 - No auto-advancement between phases
 - Each phase ends with "READY FOR CONTINUE"
 
+** IMPORTANT: Standard Workflow for SETUP.org Files
+For each SETUP.org creation phase (Phases 2-5), follow this exact workflow:
+1. Create the SETUP.org file with :mkdirp yes property
+2. Tangle using: emacs --batch -l org --eval '(org-babel-tangle-file "FILENAME.org")'
+3. Verify all files were created correctly
+4. Stage and commit changes with descriptive message
+5. Add git notes documenting ALL prompts used during the phase
+6. Keep SETUP.org files until Phase 18 (final cleanup)
+
+This ensures reproducibility and maintains a complete audit trail.
+
 ** Prerequisites
 Before starting, ensure you have:
 - Node.js installed
