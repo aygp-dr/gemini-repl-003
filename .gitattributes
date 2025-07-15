@@ -1,0 +1,4 @@
+*.org linguist-documentation
+*.md linguist-documentation
+*.cljs linguist-language=Clojure
+*.edn linguist-language=Clojure

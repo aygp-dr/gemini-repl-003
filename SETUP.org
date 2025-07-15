@@ -1,0 +1,287 @@
+#+TITLE: Initial Project Structure Setup
+#+AUTHOR: jwalsh + Claude
+#+DATE: 2025-07-15
+#+PROPERTY: header-args :mkdirp yes
+
+* Overview
+
+This file generates the initial directory structure and configuration files for the Gemini REPL project.
+
+* Directory Structure
+
+** Core Directories
+
+#+BEGIN_SRC bash :tangle yes
+mkdir -p specs
+mkdir -p src
+mkdir -p tests
+mkdir -p docs
+mkdir -p scripts
+mkdir -p tools
+#+END_SRC
+
+** README Files
+
+#+BEGIN_SRC markdown :tangle specs/README.md
+# Formal Specifications
+
+This directory contains formal specifications for the Gemini REPL system using TLA+ and Alloy.
+
+## Structure
+- `*.tla` - TLA+ specifications
+- `*.alloy` - Alloy models
+- `Makefile` - Build targets for verification
+#+END_SRC
+
+#+BEGIN_SRC markdown :tangle src/README.md
+# Source Code
+
+Main implementation directory for the Gemini REPL ClojureScript application.
+#+END_SRC
+
+#+BEGIN_SRC markdown :tangle tests/README.md
+# Tests
+
+Test suite for the Gemini REPL application.
+#+END_SRC
+
+#+BEGIN_SRC markdown :tangle docs/README.md
+# Documentation
+
+Project documentation and guides.
+#+END_SRC
+
+#+BEGIN_SRC markdown :tangle scripts/README.md
+# Scripts
+
+Build and utility scripts for development.
+#+END_SRC
+
+#+BEGIN_SRC markdown :tangle tools/README.md
+# Tools
+
+Development tools and formal methods verification tools.
+#+END_SRC
+
+* Configuration Files
+
+** Git Configuration
+
+#+BEGIN_SRC text :tangle .gitattributes
+*.org linguist-documentation
+*.md linguist-documentation
+*.cljs linguist-language=Clojure
+*.edn linguist-language=Clojure
+#+END_SRC
+
+** Editor Configuration
+
+#+BEGIN_SRC text :tangle .editorconfig
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{clj,cljs,cljc,edn}]
+indent_style = space
+indent_size = 2
+
+[*.{json,js}]
+indent_style = space
+indent_size = 2
+
+[Makefile]
+indent_style = tab
+
+[*.md]
+trim_trailing_whitespace = false
+#+END_SRC
+
+* Initial Makefile
+
+#+BEGIN_SRC makefile :tangle Makefile
+# Gemini REPL Makefile
+# Use gmake on FreeBSD
+
+.PHONY: help
+help:
+	@echo "Gemini REPL Build System"
+	@echo "========================"
+	@echo "Available targets:"
+	@echo "  make help     - Show this help message"
+	@echo "  make setup    - Initial project setup"
+	@echo ""
+	@echo "More targets will be added as the project develops"
+
+.PHONY: setup
+setup:
+	@echo "Setting up project structure..."
+	@test -d specs || mkdir -p specs
+	@test -d src || mkdir -p src
+	@test -d tests || mkdir -p tests
+	@test -d docs || mkdir -p docs
+	@test -d scripts || mkdir -p scripts
+	@test -d tools || mkdir -p tools
+	@echo "Project structure created successfully"
+#+END_SRC
+
+* Formal Methods Scaffolding
+
+** TLA+ Module Template
+
+#+BEGIN_SRC tla :tangle specs/template.tla
+---- MODULE template ----
+EXTENDS Naturals, Sequences, TLC
+
+\* Module documentation
+\* This is a template for TLA+ specifications
+
+CONSTANTS
+    \* Define constants here
+    MAX_VALUE
+
+VARIABLES
+    \* Define state variables here
+    state
+
+----
+\* Type invariant
+TypeInvariant ==
+    /\ state \in 0..MAX_VALUE
+
+\* Initial state
+Init ==
+    /\ state = 0
+
+\* State transitions
+Next ==
+    /\ state' = state + 1
+    /\ state < MAX_VALUE
+
+\* Specification
+Spec == Init /\ [][Next]_state
+
+====
+#+END_SRC
+
+** Alloy Model Template
+
+#+BEGIN_SRC alloy :tangle specs/template.als
+// Alloy model template for Gemini REPL
+
+module template
+
+// Basic signatures
+sig Element {
+    // relations
+}
+
+// Facts (constraints)
+fact {
+    // Add constraints here
+}
+
+// Predicates
+pred show {
+    // Visualization predicate
+}
+
+// Assertions
+assert property {
+    // Properties to check
+}
+
+// Commands
+run show for 3
+check property for 5
+#+END_SRC
+
+* Development Scripts
+
+** Setup Script
+
+#+BEGIN_SRC bash :tangle scripts/setup.sh :shebang #!/bin/sh
+# Project setup script
+
+echo "Gemini REPL Project Setup"
+echo "========================"
+
+# Check for required tools
+check_tool() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        echo "ERROR: $1 is not installed"
+        return 1
+    else
+        echo "✓ $1 found"
+        return 0
+    fi
+}
+
+echo ""
+echo "Checking required tools..."
+check_tool git
+check_tool node
+check_tool npm
+
+echo ""
+echo "Project structure:"
+find . -type d -name ".*" -prune -o -type d -print | head -20
+
+echo ""
+echo "Setup complete!"
+#+END_SRC
+
+* Documentation Templates
+
+** Change Request Template
+
+#+BEGIN_SRC markdown :tangle docs/CHANGE-REQUEST-TEMPLATE.md
+# Change Request: [Title]
+
+## Summary
+Brief description of the proposed change.
+
+## Motivation
+Why this change is needed.
+
+## Detailed Design
+Technical details of the implementation.
+
+## Alternatives Considered
+Other approaches that were evaluated.
+
+## Testing Plan
+How this change will be tested.
+
+## Impact Analysis
+Effects on existing functionality.
+#+END_SRC
+
+** Experiment Template
+
+#+BEGIN_SRC markdown :tangle docs/EXPERIMENT-TEMPLATE.md
+# Experiment: [Title]
+
+## Hypothesis
+What we expect to learn or prove.
+
+## Method
+How the experiment will be conducted.
+
+## Results
+Findings from the experiment.
+
+## Conclusions
+What we learned and next steps.
+#+END_SRC
+
+* Final Notes
+
+This file creates the basic project structure. After tangling:
+1. Run `make setup` to verify the structure
+2. Check that all directories and files were created
+3. Remove this SETUP.org file as it's no longer needed
+#+END_SRC
