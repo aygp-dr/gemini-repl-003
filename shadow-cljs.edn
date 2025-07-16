@@ -1,8 +1,11 @@
 {:source-paths ["src" "test"]
  
  :dependencies
- [[org.clojure/clojure "1.11.1"]
-  [org.clojure/clojurescript "1.11.132"]]
+ [;; Shadow-CLJS provides its own Clojure/ClojureScript versions
+  ;; Uncomment only if you need specific versions (not recommended)
+  ;; [org.clojure/clojure "1.11.1"]
+  ;; [org.clojure/clojurescript "1.11.132"]
+  ]
  
  :builds
  {:app

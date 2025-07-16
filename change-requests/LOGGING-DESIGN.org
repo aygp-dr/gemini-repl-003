@@ -1,0 +1,99 @@
+#+TITLE: Logging System Design
+#+AUTHOR: jwalsh
+#+DATE: 2025-07-15
+#+TAGS: logging, monitoring, observability
+
+* Overview
+
+Design for comprehensive logging system supporting both FIFO and file-based logging.
+
+* Requirements
+
+1. Dual logging targets: FIFO for real-time monitoring, file for persistence
+2. JSON-formatted log entries for easy parsing
+3. Configurable log levels via environment variables
+4. Minimal performance impact
+5. Automatic log rotation (future enhancement)
+
+* Architecture
+
+** Log Entry Structure
+#+BEGIN_SRC json
+{
+  "timestamp": "2025-07-15T19:45:00.123Z",
+  "level": "INFO|DEBUG|WARN|ERROR",
+  "component": "repl|api|command",
+  "event": "request|response|error|command",
+  "data": {
+    // Event-specific data
+  }
+}
+#+END_SRC
+
+** Logging Targets
+
+*** FIFO Logging
+- Path: /tmp/gemini-repl.fifo
+- Created on startup if not exists
+- Non-blocking writes
+- For real-time monitoring: `tail -f /tmp/gemini-repl.fifo | jq`
+
+*** File Logging
+- Path: logs/gemini-repl.log
+- Append mode with timestamps
+- Create directory if not exists
+- Human-readable format
+
+* Implementation Plan
+
+** Phase 1: Core Functions
+#+BEGIN_SRC clojure
+(defn log-entry [level component event data]
+  {:timestamp (js/Date.)
+   :level level
+   :component component
+   :event event
+   :data data})
+
+(defn log-to-fifo [entry]
+  (when (and fifo-enabled (fs/existsSync fifo-path))
+    (fs/appendFileSync fifo-path (str (js/JSON.stringify entry) "\n"))))
+
+(defn log-to-file [entry]
+  (when file-enabled
+    (ensure-log-directory)
+    (fs/appendFileSync log-file-path (format-log-entry entry))))
+#+END_SRC
+
+** Phase 2: Integration Points
+1. API requests/responses
+2. Command execution
+3. Error handling
+4. State changes
+
+** Phase 3: Configuration
+Environment variables:
+- GEMINI_LOG_LEVEL=debug|info|warn|error
+- GEMINI_LOG_FIFO=/tmp/gemini-repl.fifo
+- GEMINI_LOG_FILE=logs/gemini-repl.log
+- GEMINI_LOG_ENABLED=true|false
+
+* Usage Examples
+
+** Monitor API Calls
+#+BEGIN_SRC bash
+mkfifo /tmp/gemini-repl.fifo
+tail -f /tmp/gemini-repl.fifo | jq 'select(.component=="api")'
+#+END_SRC
+
+** Debug Command Processing
+#+BEGIN_SRC bash
+tail -f logs/gemini-repl.log | grep "command"
+#+END_SRC
+
+* Testing Strategy
+
+1. Unit tests for log formatting
+2. Integration tests for file/FIFO writing
+3. Performance benchmarks
+4. Error handling (missing FIFO, full disk)
