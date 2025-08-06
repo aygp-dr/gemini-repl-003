@@ -1,6 +1,10 @@
 # Gemini REPL Makefile
 # Use gmake on FreeBSD
 
+# Project configuration
+PROJECT_NAME ?= gemini-repl
+PROJECT_ROOT ?= $(shell pwd)
+
 .PHONY: help
 help:
 	@echo "Gemini REPL Build System"
@@ -16,6 +20,9 @@ help:
 	@echo "  make lint     - Run linter"
 	@echo "  make clean    - Clean build artifacts"
 	@echo "  make all      - Run lint, test, and build"
+	@echo "  make emacs    - Start Emacs in tmux for Clojure development"
+	@echo "  make attach   - Attach to existing Emacs tmux session"
+	@echo "  make tty      - Show TTY of Emacs tmux pane"
 
 .PHONY: setup
 setup:
@@ -77,3 +84,30 @@ download-alloy:
 .PHONY: all
 all: lint test build
 	@echo "Quality gates passed!"
+
+# Emacs/tmux support for Clojure development
+.PHONY: emacs
+emacs:
+	@if tmux has-session -t $(PROJECT_NAME) 2>/dev/null; then \
+		echo "Session $(PROJECT_NAME) already exists. Use 'make attach' to connect."; \
+	else \
+		echo "Starting Emacs in tmux session: $(PROJECT_NAME)"; \
+		tmux new-session -d -s $(PROJECT_NAME) "emacs -nw -Q -l $(PROJECT_ROOT)/$(PROJECT_NAME).el"; \
+		echo "Session started. Use 'make attach' to connect."; \
+	fi
+
+.PHONY: attach
+attach:
+	@if tmux has-session -t $(PROJECT_NAME) 2>/dev/null; then \
+		tmux attach-session -t $(PROJECT_NAME); \
+	else \
+		echo "No session found. Use 'make emacs' to start one."; \
+	fi
+
+.PHONY: tty
+tty:
+	@if tmux has-session -t $(PROJECT_NAME) 2>/dev/null; then \
+		tmux list-panes -t $(PROJECT_NAME) -F "#{pane_tty}"; \
+	else \
+		echo "No session found. Use 'make emacs' to start one."; \
+	fi
