@@ -1,21 +1,14 @@
-{:source-paths ["src" "test"]
- 
- :dependencies
- [;; Shadow-CLJS provides its own Clojure/ClojureScript versions
-  ;; Uncomment only if you need specific versions (not recommended)
-  ;; [org.clojure/clojure "1.11.1"]
-  ;; [org.clojure/clojurescript "1.11.132"]
-  ]
- 
+;; Classpath and dependencies come from deps.edn (:cljs + :dev aliases).
+{:deps {:aliases [:cljs :dev]}
+
  :builds
  {:app
   {:target :node-script
    :output-to "target/main.js"
    :main gemini-repl.core/main
    :devtools {:repl-init-ns gemini-repl.core}}
-  
+
   :test
-  {:target :node-script
+  {:target :node-test
    :output-to "target/test.js"
-   :main gemini-repl.test-runner/main
-   :devtools {:repl-init-ns gemini-repl.test-runner}}}}
+   :ns-regexp "-test$"}}}

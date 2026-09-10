@@ -1,4 +1,8 @@
-{:linters {:unresolved-symbol {:exclude [(cljs.test/is [macroexpansion])]}
-           :unused-binding {:level :warning}
-           :unused-namespace {:level :warning}}
- :hooks {}}
+{:linters {:unresolved-symbol   {:exclude [(cljs.test/is [macroexpansion])]}
+           :unused-namespace    {:level :warning}
+           :unused-referred-var {:level :warning}
+           :unused-binding      {:level :warning}
+           :redundant-do        {:level :warning}
+           :missing-docstring   {:level :off}}
+ :hooks {}
+ :output {:exclude-files ["^resources/" "^node_modules/" "^target/"]}}
