@@ -1,6 +1,8 @@
 (ns gemini-repl.core
   (:require [cljs.nodejs :as nodejs]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.spec.alpha :as s]
+            [gemini-repl.specs :as specs]))
 
 ;; Node.js requires
 (def readline (nodejs/require "readline"))
@@ -66,6 +68,13 @@
    :event event
    :data data})
 
+(s/fdef log-entry
+  :args (s/cat :level ::specs/level :component ::specs/component
+               :event ::specs/event :data ::specs/log-data)
+  :ret ::specs/log-entry
+  ;; the entry is exactly its arguments plus a timestamp
+  :fn (fn [{:keys [args ret]}] (= args (dissoc ret :timestamp))))
+
 (defn log-to-fifo [entry]
   (when (and log-enabled (.existsSync fs fifo-path))
     (try
@@ -73,6 +82,10 @@
       (catch js/Error _
         ;; Silently fail if FIFO not available
         nil))))
+
+(s/fdef log-to-fifo
+  :args (s/cat :entry ::specs/log-entry)
+  :ret nil?)
 
 (defn log-to-file [entry]
   (when log-enabled
@@ -92,11 +105,20 @@
         ;; Silently fail if can't write to file
         nil))))
 
+(s/fdef log-to-file
+  :args (s/cat :entry ::specs/log-entry)
+  :ret nil?)
+
 (defn log [level component event data]
   (when log-enabled
     (let [entry (log-entry level component event data)]
       (log-to-fifo entry)
       (log-to-file entry))))
+
+(s/fdef log
+  :args (s/cat :level ::specs/level :component ::specs/component
+               :event ::specs/event :data ::specs/log-data)
+  :ret nil?)
 
 ;; API interaction
 (defn make-request [prompt callback]
@@ -138,6 +160,10 @@
     (.write req data)
     (.end req)))
 
+(s/fdef make-request
+  :args (s/cat :prompt string? :callback fn?)
+  :ret some?)
+
 ;; REPL interface
 (defn create-interface []
   (let [^js rl-module readline]
@@ -145,6 +171,10 @@
                       #js {:input js/process.stdin
                            :output js/process.stdout
                            :prompt "gemini> "})))
+
+(s/fdef create-interface
+  :args (s/cat)
+  :ret some?)
 
 (defn process-input [^js rl input]
   (let [trimmed (str/trim input)]
@@ -180,11 +210,20 @@
                             (swap! repl-state update-in [:stats :request-count] inc)))
                         (.prompt rl)))))))
 
+(s/fdef process-input
+  :args (s/cat :rl some? :input string?)
+  ;; returns whatever readline/https returned; nothing to promise
+  :ret any?)
+
 (defn display-banner []
   (println "")
   (println "=== Gemini REPL ===")
   (println "Type /help for commands")
   (println ""))
+
+(s/fdef display-banner
+  :args (s/cat)
+  :ret nil?)
 
 (defn main []
   (when (empty? api-key)
@@ -199,6 +238,10 @@
     (.on rl "close" (fn []
                       (println "\nGoodbye!")
                       (.exit js/process 0)))))
+
+(s/fdef main
+  :args (s/cat)
+  :ret any?)
 
 ;; Enable direct execution
 (set! *main-cli-fn* main)
