@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "shadow-cljs watch app",
     "build": "shadow-cljs compile app",
-    "test": "shadow-cljs compile test && node target/test.js",
+    "test": "bb test",
     "clean": "rm -rf target .shadow-cljs",
     "repl": "shadow-cljs cljs-repl app"
   },

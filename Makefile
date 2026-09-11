@@ -57,11 +57,11 @@ run:
 
 .PHONY: test
 test:
-	npm test
+	bb test
 
 .PHONY: lint
 lint:
-	npx clj-kondo --lint src test
+	bb lint
 
 .PHONY: clean
 clean:

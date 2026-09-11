@@ -5,3 +5,9 @@ target/
 *.log
 .clj-kondo/.cache/
 tools/formal-methods/
+# clojure standard v1
+.cpcache/
+.lsp/
+.nrepl-port
+.rebel_readline_history
+out/
